@@ -1,6 +1,7 @@
 {
     "chat.tools.terminal.autoApprove": {
         "npx ctx7@latest": true,
-        "npx @microsoft/learn-cli": true
+        "npx @microsoft/learn-cli": true,
+        "dotnet format": true
     }
 }

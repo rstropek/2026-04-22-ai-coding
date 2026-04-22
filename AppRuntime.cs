@@ -1,14 +1,8 @@
 using OpenAI.Responses;
 
-internal sealed class AppRuntime
+internal sealed class AppRuntime(AppConfiguration configuration)
 {
-	public AppRuntime(AppConfiguration configuration)
-	{
-		Client = new ResponsesClient(apiKey: configuration.ApiKey);
-		SystemPrompt = configuration.SystemPrompt;
-	}
+	public ResponsesClient Client { get; } = new(apiKey: configuration.ApiKey);
 
-	public ResponsesClient Client { get; }
-
-	public string SystemPrompt { get; }
+	public string SystemPrompt { get; } = configuration.SystemPrompt;
 }

@@ -1,38 +1,25 @@
 using OpenAI.Responses;
 using System.Text;
 
-internal sealed class OneShotRunner
+internal sealed class OneShotRunner(ResponsesClient client, string systemPrompt, TextWriter output, TextWriter error)
 {
-	private readonly ResponsesClient _client;
-	private readonly TextWriter _error;
-	private readonly TextWriter _output;
-	private readonly string _systemPrompt;
-
-	public OneShotRunner(ResponsesClient client, string systemPrompt, TextWriter output, TextWriter error)
-	{
-		_client = client;
-		_systemPrompt = systemPrompt;
-		_output = output;
-		_error = error;
-	}
-
 	public async Task<int> RunAsync(string? prompt, CancellationToken cancellationToken)
 	{
 		if (!PromptValidator.TryValidate(prompt, out string? validationError))
 		{
-			await _error.WriteLineAsync(validationError);
+			await error.WriteLineAsync(validationError);
 			return 1;
 		}
 
 		try
 		{
 			await StreamAssistantResponseAsync(prompt!, cancellationToken);
-			await _output.WriteLineAsync();
+			await output.WriteLineAsync();
 			return 0;
 		}
 		catch (Exception ex)
 		{
-			await _error.WriteLineAsync($"Request failed: {ex.Message}");
+			await error.WriteLineAsync($"Request failed: {ex.Message}");
 			return 1;
 		}
 	}
@@ -44,7 +31,7 @@ internal sealed class OneShotRunner
 		CreateResponseOptions options = new()
 		{
 			Model = "gpt-5.4",
-			Instructions = _systemPrompt,
+			Instructions = systemPrompt,
 			StoredOutputEnabled = false,
 			StreamingEnabled = true,
 		};
@@ -53,11 +40,11 @@ internal sealed class OneShotRunner
 		bool wroteOutput = false;
 		StringBuilder assistantResponse = new();
 
-		await foreach (StreamingResponseUpdate update in _client.CreateResponseStreamingAsync(options))
+		await foreach (StreamingResponseUpdate update in client.CreateResponseStreamingAsync(options))
 		{
 			if (update is StreamingResponseOutputTextDeltaUpdate textDelta)
 			{
-				await _output.WriteAsync(textDelta.Delta);
+				await output.WriteAsync(textDelta.Delta);
 				assistantResponse.Append(textDelta.Delta);
 				wroteOutput = true;
 			}
@@ -65,7 +52,7 @@ internal sealed class OneShotRunner
 
 		if (!wroteOutput)
 		{
-			await _output.WriteAsync("[no text returned]");
+			await output.WriteAsync("[no text returned]");
 		}
 	}
 }

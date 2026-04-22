@@ -1,45 +1,27 @@
 using OpenAI.Responses;
 using System.Text;
 
-internal sealed class ReplRunner
+internal sealed class ReplRunner(
+	ResponsesClient client,
+	string systemPrompt,
+	ConversationState conversationState,
+	SlashCommandDispatcher slashCommandDispatcher,
+	TextReader input,
+	TextWriter output,
+	TextWriter error)
 {
-	private readonly ResponsesClient _client;
-	private readonly ConversationState _conversationState;
-	private readonly TextReader _input;
-	private readonly TextWriter _output;
-	private readonly TextWriter _error;
-	private readonly SlashCommandDispatcher _slashCommandDispatcher;
-	private readonly string _systemPrompt;
-
-	public ReplRunner(
-		ResponsesClient client,
-		string systemPrompt,
-		ConversationState conversationState,
-		SlashCommandDispatcher slashCommandDispatcher,
-		TextReader input,
-		TextWriter output,
-		TextWriter error)
-	{
-		_client = client;
-		_systemPrompt = systemPrompt;
-		_conversationState = conversationState;
-		_slashCommandDispatcher = slashCommandDispatcher;
-		_input = input;
-		_output = output;
-		_error = error;
-	}
 
 	public async Task<int> RunAsync(CancellationToken cancellationToken)
 	{
-		await _output.WriteLineAsync("Console coding chat");
-		await _output.WriteLineAsync("Type /exit to quit.");
+		await output.WriteLineAsync("Console coding chat");
+		await output.WriteLineAsync("Type /exit to quit.");
 
 		while (!cancellationToken.IsCancellationRequested)
 		{
-			await _output.WriteLineAsync();
-			await _output.WriteAsync("You: ");
+			await output.WriteLineAsync();
+			await output.WriteAsync("You: ");
 
-			string? userInput = await _input.ReadLineAsync();
+			string? userInput = await input.ReadLineAsync();
 			if (userInput is null)
 			{
 				return 0;
@@ -47,16 +29,16 @@ internal sealed class ReplRunner
 
 			if (!PromptValidator.TryValidate(userInput, out string? validationError))
 			{
-				await _output.WriteLineAsync(validationError);
+				await output.WriteLineAsync(validationError);
 				continue;
 			}
 
-			SlashCommandDispatchResult slashCommand = _slashCommandDispatcher.Dispatch(userInput);
+			SlashCommandDispatchResult slashCommand = slashCommandDispatcher.Dispatch(userInput);
 			if (slashCommand.IsCommand)
 			{
 				if (slashCommand.Message is not null)
 				{
-					await _output.WriteLineAsync(slashCommand.Message);
+					await output.WriteLineAsync(slashCommand.Message);
 				}
 
 				if (slashCommand.ShouldExit)
@@ -67,24 +49,24 @@ internal sealed class ReplRunner
 				continue;
 			}
 
-			string conversationTranscript = _conversationState.CreateTranscriptWithUserTurn(userInput);
+			string conversationTranscript = conversationState.CreateTranscriptWithUserTurn(userInput);
 
-			await _output.WriteAsync("Assistant: ");
+			await output.WriteAsync("Assistant: ");
 			try
 			{
 				string assistantResponse = await StreamAssistantResponseAsync(conversationTranscript, cancellationToken);
 				if (assistantResponse.Length > 0)
 				{
-					_conversationState.AddUserTurn(userInput);
-					_conversationState.AddAssistantTurn(assistantResponse);
+					conversationState.AddUserTurn(userInput);
+					conversationState.AddAssistantTurn(assistantResponse);
 				}
 
-				await _output.WriteLineAsync();
+				await output.WriteLineAsync();
 			}
 			catch (Exception ex)
 			{
-				await _output.WriteLineAsync();
-				await _error.WriteLineAsync($"Request failed: {ex.Message}");
+				await output.WriteLineAsync();
+				await error.WriteLineAsync($"Request failed: {ex.Message}");
 			}
 		}
 
@@ -98,7 +80,7 @@ internal sealed class ReplRunner
 		CreateResponseOptions options = new()
 		{
 			Model = "gpt-5.4",
-			Instructions = _systemPrompt,
+			Instructions = systemPrompt,
 			StoredOutputEnabled = false,
 			StreamingEnabled = true,
 		};
@@ -107,11 +89,11 @@ internal sealed class ReplRunner
 		bool wroteOutput = false;
 		StringBuilder assistantResponse = new();
 
-		await foreach (StreamingResponseUpdate update in _client.CreateResponseStreamingAsync(options))
+		await foreach (StreamingResponseUpdate update in client.CreateResponseStreamingAsync(options))
 		{
 			if (update is StreamingResponseOutputTextDeltaUpdate textDelta)
 			{
-				await _output.WriteAsync(textDelta.Delta);
+				await output.WriteAsync(textDelta.Delta);
 				assistantResponse.Append(textDelta.Delta);
 				wroteOutput = true;
 			}
@@ -119,7 +101,7 @@ internal sealed class ReplRunner
 
 		if (!wroteOutput)
 		{
-			await _output.WriteAsync("[no text returned]");
+			await output.WriteAsync("[no text returned]");
 		}
 
 		return assistantResponse.ToString();
