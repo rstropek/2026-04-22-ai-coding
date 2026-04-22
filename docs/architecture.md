@@ -25,7 +25,7 @@ This split is important for future extensions. Additional automation-oriented ac
 
 The two execution modes are intentionally separate runners rather than flags inside one loop:
 
-- `ReplRunner` owns the interactive loop, shell-like commands, transcript growth, and conversational streaming output.
+- `ReplRunner` owns the interactive loop, shell-like commands, conversation-state growth, and conversational streaming output.
 - `OneShotRunner` owns exactly one validated request and exits immediately after writing the answer.
 
 This prevents the one-shot mode from accidentally inheriting REPL-specific behavior such as banners, prompts, slash-command handling, or persistent conversation state.
@@ -37,7 +37,9 @@ The different output contracts are deliberate:
 
 ## Conversation State
 
-`ConversationState` stores only completed chat turns, not arbitrary input history. That rule exists to keep the model transcript semantically clean.
+`ConversationState` stores only completed chat turns, not arbitrary input history. That rule exists to keep model input semantically clean.
+
+The state model deliberately stays independent from request construction details. It keeps completed turns in a small internal role-tagged form and materializes OpenAI `ResponseItem` message objects only when a runner asks for input items.
 
 The following inputs are intentionally excluded from conversation state:
 
@@ -46,7 +48,7 @@ The following inputs are intentionally excluded from conversation state:
 - Failed requests
 - One-shot invocations
 
-The REPL computes the next transcript by appending the current user turn transiently, and only persists the new user/assistant pair after the streamed response produced actual assistant text. This avoids polluting the transcript with failed or partial exchanges.
+The REPL computes the next request input by appending the current user turn transiently to the completed turns, and only persists the new user/assistant pair after the streamed response produced actual assistant text. This avoids polluting future model input with failed or partial exchanges.
 
 ## Slash-Command Boundary
 
@@ -74,7 +76,7 @@ The OpenAI request setup remains inside the runners instead of being hidden behi
 
 The request creation logic is small, but the surrounding behavior differs by mode:
 
-- REPL needs conversation transcript handling and human-oriented prefixes.
+- REPL needs typed conversation-item handling and human-oriented prefixes.
 - One-shot needs direct output and no state persistence.
 - Error handling and exit-code decisions differ between the modes.
 

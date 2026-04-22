@@ -49,12 +49,12 @@ internal sealed class ReplRunner(
 				continue;
 			}
 
-			string conversationTranscript = conversationState.CreateTranscriptWithUserTurn(userInput);
+			IEnumerable<ResponseItem> inputItems = conversationState.CreateInputItemsWithUserTurn(userInput);
 
 			await output.WriteAsync("Assistant: ");
 			try
 			{
-				string assistantResponse = await StreamAssistantResponseAsync(conversationTranscript, cancellationToken);
+				string assistantResponse = await StreamAssistantResponseAsync(inputItems, cancellationToken);
 				if (assistantResponse.Length > 0)
 				{
 					conversationState.AddUserTurn(userInput);
@@ -73,7 +73,7 @@ internal sealed class ReplRunner(
 		return 0;
 	}
 
-	private async Task<string> StreamAssistantResponseAsync(string conversationTranscript, CancellationToken cancellationToken)
+	private async Task<string> StreamAssistantResponseAsync(IEnumerable<ResponseItem> inputItems, CancellationToken cancellationToken)
 	{
 		_ = cancellationToken;
 
@@ -84,7 +84,11 @@ internal sealed class ReplRunner(
 			StoredOutputEnabled = false,
 			StreamingEnabled = true,
 		};
-		options.InputItems.Add(ResponseItem.CreateUserMessageItem(conversationTranscript));
+
+		foreach (ResponseItem inputItem in inputItems)
+		{
+			options.InputItems.Add(inputItem);
+		}
 
 		bool wroteOutput = false;
 		StringBuilder assistantResponse = new();

@@ -1,31 +1,48 @@
+using OpenAI.Responses;
+
 internal sealed class ConversationState
 {
 	private readonly List<ConversationTurn> _turns = [];
 
-	public string CreateTranscript() => string.Join(Environment.NewLine + Environment.NewLine, _turns.Select(turn => turn.ToTranscriptLine()));
-
-	public string CreateTranscriptWithUserTurn(string userInput)
+	public IEnumerable<ResponseItem> CreateInputItems()
 	{
-		if (_turns.Count == 0)
+		foreach (ConversationTurn turn in _turns)
 		{
-			return ConversationTurn.User(userInput).ToTranscriptLine();
+			yield return turn.ToResponseItem();
+		}
+	}
+
+	public IEnumerable<ResponseItem> CreateInputItemsWithUserTurn(string userInput)
+	{
+		foreach (ResponseItem item in CreateInputItems())
+		{
+			yield return item;
 		}
 
-		return string.Join(
-			Environment.NewLine + Environment.NewLine,
-			_turns.Select(turn => turn.ToTranscriptLine()).Append(ConversationTurn.User(userInput).ToTranscriptLine()));
+		yield return ResponseItem.CreateUserMessageItem(userInput);
 	}
 
 	public void AddUserTurn(string content) => _turns.Add(ConversationTurn.User(content));
 
 	public void AddAssistantTurn(string content) => _turns.Add(ConversationTurn.Assistant(content));
 
-	private readonly record struct ConversationTurn(string Role, string Content)
+	private readonly record struct ConversationTurn(ConversationRole Role, string Content)
 	{
-		public static ConversationTurn User(string content) => new("User", content);
+		public static ConversationTurn User(string content) => new(ConversationRole.User, content);
 
-		public static ConversationTurn Assistant(string content) => new("Assistant", content);
+		public static ConversationTurn Assistant(string content) => new(ConversationRole.Assistant, content);
 
-		public string ToTranscriptLine() => $"{Role}: {Content}";
+		public ResponseItem ToResponseItem() => Role switch
+		{
+			ConversationRole.User => ResponseItem.CreateUserMessageItem(Content),
+			ConversationRole.Assistant => ResponseItem.CreateAssistantMessageItem(Content),
+			_ => throw new InvalidOperationException($"Unsupported conversation role '{Role}'.")
+		};
+	}
+
+	private enum ConversationRole
+	{
+		User,
+		Assistant,
 	}
 }
