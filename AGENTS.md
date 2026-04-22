@@ -1,0 +1,1 @@
+This .NET Application uses the OpenAI .NET SDK. Find additional information using Context7 with libraryId `/openai/openai-dotnet` (you should skip the "resolve library" step in this case). Use the `find-docs` skill to learn about how to research in Context7.
