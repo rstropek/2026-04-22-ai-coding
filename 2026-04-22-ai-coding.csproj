@@ -6,6 +6,7 @@
     <RootNamespace>_2026_04_22_ai_coding</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);OPENAI001</NoWarn>
     <UserSecretsId>6e9b5b87-e114-498d-b80a-7bb3ab7581bc</UserSecretsId>
   </PropertyGroup>
 
@@ -14,6 +15,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.7" />
     <PackageReference Include="OpenAI" Version="2.10.0" />
+    <PackageReference Include="System.CommandLine" Version="3.0.0-preview.3.26207.106" />
   </ItemGroup>
 
   <ItemGroup>
